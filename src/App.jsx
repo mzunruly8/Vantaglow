@@ -9,12 +9,12 @@ import {
   Wind, Stars, Activity, Cpu, Loader2, Download, Eye, EyeOff, Frame, RefreshCw
 } from 'lucide-react';
 
-const runtimeConfig = typeof window !== 'undefined' ? window.__VANTAGLOW_CONFIG__ : undefined;
+const runtimeConfig = typeof window !== 'undefined' ? window.__LUMSKETCH_CONFIG__ : undefined;
 const firebaseConfig = runtimeConfig?.firebase || {};
 const app = Object.keys(firebaseConfig).length ? initializeApp(firebaseConfig) : null;
 const auth = app ? getAuth(app) : null;
 const db = app ? getFirestore(app) : null;
-const appId = runtimeConfig?.appId || 'vantaglow-app';
+const appId = runtimeConfig?.appId || 'lumsketch-app';
 
 const COLORS = [
   '#ff00ff', '#00ffff', '#ffff00', '#00ff00', '#ff0000', 
@@ -244,7 +244,7 @@ export default function App() {
 
   const downloadImage = () => {
     const link = document.createElement('a');
-    link.download = `vantaglow_${Date.now()}.png`;
+    link.download = `lumsketch_${Date.now()}.png`;
     link.href = canvasRef.current.toDataURL('image/png');
     link.click();
   };
@@ -276,7 +276,7 @@ export default function App() {
         ? collection(db, 'artifacts', appId, 'public', 'data', 'gallery')
         : collection(db, 'artifacts', appId, 'users', user.uid, 'drawings');
       await addDoc(path, drawingData);
-      setSaveStatus('Vantaglow Saved');
+      setSaveStatus('LumSketch Saved');
       setTimeout(() => { setShowSaveModal(false); setSaveStatus(null); }, 1000);
     } catch (err) {
       setSaveStatus('Error saving');
@@ -453,7 +453,7 @@ export default function App() {
             <div className="space-y-10">
               <div className="flex items-center gap-6 p-8 bg-zinc-900/50 rounded-[40px] border border-white/5">
                 <div className="w-20 h-20 bg-gradient-to-br from-cyan-400 to-purple-600 rounded-[28px] flex items-center justify-center text-black text-3xl font-black">{user?.uid?.charAt(0).toUpperCase() || 'U'}</div>
-                <div><h3 className="text-xl font-bold leading-tight">Vantaglow<br/>Creator</h3><p className="text-xs text-zinc-500 font-mono mt-1">ID: {user?.uid?.slice(0, 8) || 'guest'}</p></div>
+                <div><h3 className="text-xl font-bold leading-tight">LumSketch<br/>Creator</h3><p className="text-xs text-zinc-500 font-mono mt-1">ID: {user?.uid?.slice(0, 8) || 'guest'}</p></div>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 {myDrawings.map(item => (<img key={item.id} src={item.image} alt="My drawing" className="w-full aspect-square object-cover rounded-3xl border border-white/5 shadow-sm" />))}
@@ -466,7 +466,7 @@ export default function App() {
       {showSaveModal && (
         <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[110] flex items-center justify-center p-6">
           <div className="bg-zinc-900 border border-white/10 p-8 rounded-[48px] w-full max-w-xs space-y-4 text-center shadow-3xl">
-            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">{saveStatus || 'Vantaglow Archive'}</h3>
+            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">{saveStatus || 'LumSketch Archive'}</h3>
             <button onClick={downloadImage} className="w-full py-6 bg-cyan-600 text-white font-black rounded-[28px] text-base uppercase flex items-center justify-center gap-3 active:scale-95 transition-transform">
                 <Download size={20} /> Download PNG
             </button>
