@@ -9,11 +9,12 @@ import {
   Wind, Stars, Activity, Cpu, Loader2, Download, Eye, EyeOff, Frame, RefreshCw
 } from 'lucide-react';
 
-const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'vantaglow-app';
+const runtimeConfig = typeof window !== 'undefined' ? window.__VANTAGLOW_CONFIG__ : undefined;
+const firebaseConfig = runtimeConfig?.firebase || {};
+const app = Object.keys(firebaseConfig).length ? initializeApp(firebaseConfig) : null;
+const auth = app ? getAuth(app) : null;
+const db = app ? getFirestore(app) : null;
+const appId = runtimeConfig?.appId || 'vantaglow-app';
 
 const COLORS = [
   '#ff00ff', '#00ffff', '#ffff00', '#00ff00', '#ff0000', 
@@ -61,7 +62,7 @@ export default function App() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
 
   const canvasRef = useRef(null);
@@ -104,18 +105,23 @@ export default function App() {
 
   useEffect(() => {
     const initAuth = async () => {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        await signInWithCustomToken(auth, __initial_auth_token);
-      } else {
-        await signInAnonymously(auth);
+      if (!auth) return;
+      try {
+        if (runtimeConfig?.authToken) {
+          await signInWithCustomToken(auth, runtimeConfig.authToken);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.error('Firebase authentication unavailable:', err);
       }
     };
     initAuth();
-    return onAuthStateChanged(auth, setUser);
+    return auth ? onAuthStateChanged(auth, setUser) : undefined;
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !db) return;
     const unsubPublic = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'gallery'), (s) => {
       setGalleryItems(s.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.error(err));
@@ -129,11 +135,22 @@ export default function App() {
     if (view !== 'draw' || !canvasRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const resizeCanvas = () => {
+      const snapshot = canvas.width && canvas.height ? canvas.toDataURL() : null;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      if (snapshot) {
+        const image = new Image();
+        image.onload = () => ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        image.src = snapshot;
+      }
+    };
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctxRef.current = ctx;
+    return () => window.removeEventListener('resize', resizeCanvas);
   }, [view]);
 
   const draw = (e) => {
@@ -242,7 +259,10 @@ export default function App() {
   };
 
   const handleSave = async (isPublic) => {
-    if (!user) return;
+    if (!user || !db) {
+      setSaveStatus('Cloud sync is not configured');
+      return;
+    }
     setIsSaving(true);
     setSaveStatus('Archiving...');
     try {
@@ -266,30 +286,12 @@ export default function App() {
   };
 
   const analyzeDrawing = async () => {
-    if (isAnalyzing || !canvasRef.current) return;
+    if (!canvasRef.current) return;
     const pixelData = ctxRef.current.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height).data;
     let isBlank = true;
     for (let i = 0; i < pixelData.length; i += 4) { if (pixelData[i+3] > 0) { isBlank = false; break; } }
     if (isBlank) { setAnalysisResult("Draw a spark first."); return; }
-    setIsAnalyzing(true);
-    const imageData = canvasRef.current.toDataURL('image/png').split(',')[1];
-    try {
-      const apiKey = ""; 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: "Describe this neon doodle on its dark background in one poetic sentence." },
-              { inlineData: { mimeType: "image/png", data: imageData } }
-            ]
-          }]
-        })
-      });
-      const result = await response.json();
-      setAnalysisResult(result.candidates?.[0]?.content?.parts?.[0]?.text || "A mysterious glow.");
-    } catch (err) { setAnalysisResult("Magic is quiet."); } finally { setIsAnalyzing(false); }
+    setAnalysisResult("Your neon mark is alive in the dark.");
   };
 
   const applyHex = () => {
